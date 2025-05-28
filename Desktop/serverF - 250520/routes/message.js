@@ -3,13 +3,26 @@ const pool = require("../DB.js");
 const multer = require("multer");
 
 const router = express.Router();
-const upload = multer({ dest: "uploads/" }); // 업로드 디렉토리 설정
+const upload = multer({ dest: "uploads/" }); // 📂 업로드 경로 설정
 
-// ✅ 메시지 저장 (텍스트 + 파일 지원)
+// ✅ 모든 메시지 가져오기
+router.get("/", async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+    const result = await client.query("SELECT * FROM messages ORDER BY time ASC");
+    res.json(result.rows);
+  } catch (err) {
+    console.error("❌ 메시지 불러오기 오류:", err);
+    res.status(500).json({ message: "서버 오류" });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+// ✅ 메시지 저장 (텍스트 + 파일 전송 처리)
 router.post("/", upload.single("file"), async (req, res) => {
   const { sender_username, receiver_username, sender_name, receiver_name, content } = req.body;
-
-  // 파일 존재 시
   const file = req.file ? req.file.filename : null;
 
   if (!sender_username || !receiver_username || !sender_name) {
@@ -44,3 +57,20 @@ router.post("/", upload.single("file"), async (req, res) => {
     if (client) client.release();
   }
 });
+
+// ✅ 유저 목록
+router.get("/users", async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+    const result = await client.query("SELECT id, username, name FROM users");
+    res.status(200).json(result.rows);
+  } catch (err) {
+    console.error("❌ 유저 불러오기 오류:", err.message);
+    res.status(500).json({ message: "서버 오류" });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+module.exports = router;
